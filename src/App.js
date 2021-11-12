@@ -1,15 +1,16 @@
-import SynonymList from './SynonymList'
+import WordList from './WordList'
+import HeaderList from './HeaderList'
 import './App.css';
 import { useState, useRef, useCallback, memo} from 'react';
 
-const Memosynonymlist = memo(SynonymList);
+const Memowordlist = memo(WordList);
+const Memoheaderlist = memo(HeaderList);
 
 function App() {
   let outputWords = [];
   let savedwordList = [];
 
   const inputText = useRef(null);
-  //const [query, setQuery] = useState('')
   const [wordOutput, setwordOutput] = useState('(put output here)')
   const [outputDesc, setoutputDesc] = useState('(fill in the description)')
   const [savedWords, setsavedWords] = useState('(none)')
@@ -24,10 +25,24 @@ function App() {
     const results = await fetch("https://api.datamuse.com/words?rel_rhy="+inputText.current.value);
     let data = await results.json();
     setoutputDesc('Words that rhyme with '+inputText.current.value+":");
+    if (data.length===0) {
+      setwordOutput('No results');
+    }
+    else{
+      let syllableArray = groupBy(data, "numSyllables");
+    //  let outputWords= (Object.keys(syllableArray)).map((num) => (<Memorhymelist text={num} /> ));
+      for(let i = 0; i<(Object.keys(syllableArray)).length; i++) {
+        const num = (Object.keys(syllableArray))[i];
+        const elem = <Memoheaderlist text={num} />;
+        outputWords.push(elem);
+        let words = (syllableArray[num]).map((item) => (<Memowordlist onDone={saveButton} text={item.word} /> ));
+        outputWords.push(words);
+      }
+      setwordOutput(outputWords);
+    }
   }
 
   async function getSynonyms(){
-    console.log(inputText.current.value);
     setwordOutput('...loading'); //shows "loading" text when items are still fetching
     const results = await fetch("https://api.datamuse.com/words?ml="+inputText.current.value);
     let data = await results.json();
@@ -36,39 +51,15 @@ function App() {
       setwordOutput('No results');
     }
     else{
-//      setwordOutput(data.map((item) => (<SynonymList text={item.word} />
-//        )));
-        for(let i = 0; i<data.length; i++) {
-          const item = data[i];
-          const elem = <Memosynonymlist onDone={saveButton} text={item.word} />;
-          outputWords.push(elem);
-        }
-        setwordOutput(outputWords);
+      setwordOutput(data.map((item) => (<Memowordlist onDone={saveButton} text={item.word} /> )));
+//        for(let i = 0; i<data.length; i++) {
+//          const item = data[i];
+//          const elem = <Memosynonymlist onDone={saveButton} text={item.word} />;
+//          outputWords.push(elem);
+//        }
+//        setwordOutput(outputWords);
       }
     }
-
-// function getSynonyms(){
-//   console.log(inputText.current.value);
-//   setwordOutput('...loading'); //shows "loading" text when items are still fetching
-//   setoutputDesc('Words with a similar meaning to '+inputText.current.value+":");
-//   fetch("https://api.datamuse.com/words?ml="+inputText.current.value).then((response) => {
-//        return response.json();
-//    }).then((data) => {
-//      if (data.length===0) {
-//        setwordOutput('No results');
-//      }
-//      else{
-//          for(let i = 0; i<data.length; i++) {
-//            const item = data[i];
-//            const elem = <Memosynonymlist onDone={saveButton} text={item.word} />;
-//            outputWords.push(elem);
-//          }
-//          setwordOutput(outputWords);
-//
-//        }
-//    });
-// }
-
 
   function onKeydown(event) {
     if(event.key === 'Enter') {
@@ -76,7 +67,32 @@ function App() {
     }
   }
 
-  
+  function groupBy(objects, property) {
+    // If property is not a function, convert it to a function that accepts one argument (an object) and returns that object's
+    // value for property (obj[property])
+    if(typeof property !== 'function') {
+        const propName = property;
+        property = (obj) => obj[propName];
+    }
+
+    const groupedObjects = new Map(); // Keys: group names, value: list of items in that group
+    for(const object of objects) {
+        const groupName = property(object);
+        //Make sure that the group exists
+        if(!groupedObjects.has(groupName)) {
+            groupedObjects.set(groupName, []);
+        }
+        groupedObjects.get(groupName).push(object);
+    }
+
+    // Create an object with the results. Sort the keys so that they are in a sensible "order"
+    const result = {};
+    for(const key of Array.from(groupedObjects.keys()).sort()) {
+        result[key] = groupedObjects.get(key);
+    }
+    return result;
+  } 
+
   return (
     <div>
       <div class="col">Saved words: <span id="saved_words">{savedWords}</span></div>
